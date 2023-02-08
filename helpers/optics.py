@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import cv2 as cv
+import torch
 
 
 def perlin(x, y, seed=0):
@@ -59,8 +60,8 @@ def normalize(arr):
 
 
 def sample_perlin_psf(x, y):
-    xlin = np.linspace(0, 10, x, endpoint=False)
-    ylin = np.linspace(0, 10, y, endpoint=False)
+    xlin = np.linspace(0, x // 20, x, endpoint=False)
+    ylin = np.linspace(0, y // 20, y, endpoint=False)
     xs, ys = np.meshgrid(xlin, ylin)
     psf = perlin(xs, ys, seed=random.randint(4, 100))
     psf = (normalize(psf) * 255).astype(np.uint8)
@@ -73,9 +74,18 @@ def sample_psf(x, y):
     return psf
 
 
+def sample_psf_as_tensor(x, y):
+    psf = sample_psf(x, y)
+    psf = psf.reshape((1, x, y))
+    psf = torch.from_numpy(psf).float()
+    return psf
+
+
 if __name__ == "__main__":
-    psf = sample_psf(190, 270)
+    psf = sample_psf(256, 256)
     plt.imshow(psf,
                origin='upper', cmap='gray')
 
     plt.show()
+
+    psf_tensor = sample_psf_as_tensor(256, 256)
