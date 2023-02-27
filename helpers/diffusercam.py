@@ -1,22 +1,40 @@
-from torch.utils.data import Dataset
-from torchvision.transforms.functional import to_tensor
+import numpy as np
 from pathlib import Path
 from PIL import Image
+from torch.utils.data import Dataset
+from torchvision.transforms.functional import to_tensor, resize, rgb_to_grayscale
+from helpers.beam_propagation import Simulation
+SIZE = 270, 480
+SIMULATOR = Simulation(resolution=SIZE)
 
 
 def transform(sample):
     """Transforms a sample to a tensor"""
+    image = to_tensor(sample)
+    image = resize(image, SIZE)
+    return image
 
-    return to_tensor(sample)
+
+def diffuse_transform(sample):
+    """Transforms a sample to a tensor using beam propagation"""
+
+    image = to_tensor(sample)
+    image = resize(image, SIZE)
+    image = SIMULATOR.diffuse_image(image).unsqueeze(0)
+    image.detach().cpu()
+    return image
 
 
 class DiffuserCamDataset(Dataset):
     """Dataset for the DiffuserCam dataset, transforming images to tensors"""
 
-    def __init__(self, diffuers_images, ground_truth_images, transform=transform):
+    def __init__(self, diffuers_images, ground_truth_images, transform=transform, use_diffuse_transform=False):
         self.diffuser_images = diffuers_images
         self.ground_truth_images = ground_truth_images
-        self.transform = transform
+        self.transform = transform if not use_diffuse_transform else diffuse_transform
+        self.diffuser_transform = diffuse_transform
+        self.use_diffuse_transform = use_diffuse_transform
+        self.simulator = Simulation()
 
     def __len__(self):
         return len(self.diffuser_images)
@@ -26,15 +44,21 @@ class DiffuserCamDataset(Dataset):
         ground_truth_image = self.ground_truth_images[idx]
 
         x, y = None, None
-        if self.transform:
-            x = self.transform(diffuser_image)
-            y = self.transform(ground_truth_image)
+        if self.use_diffuse_transform:
+            # when testing for grayscale images
+            x = rgb_to_grayscale(
+                self.diffuser_transform(np.load(ground_truth_image)))
+            y = rgb_to_grayscale(self.transform(np.load(ground_truth_image)))
+        else:
+            # when testing for RGB images
+            x = self.transform(np.load(diffuser_image))
+            y = self.transform(np.load(ground_truth_image))
 
         return x, y
 
 
 class DiffuserCam:
-    def __init__(self, path) -> None:
+    def __init__(self, path, use_diffuser_transform=False) -> None:
         self.path = Path(path)
 
         self.psf = Image.open(self.path / "psf.tiff")
@@ -45,9 +69,9 @@ class DiffuserCam:
             self.path, "dataset_test.csv")
 
         self.train_dataset = DiffuserCamDataset(
-            training_diffused, training_ground_truth)
+            training_diffused, training_ground_truth, use_diffuse_transform=use_diffuser_transform)
         self.test_dataset = DiffuserCamDataset(
-            testing_diffused, testing_ground_truth)
+            testing_diffused, testing_ground_truth, use_diffuse_transform=use_diffuser_transform)
 
     def get_dataset_images(self, path, filename):
         """Get the images from the dataset path given on input"""
