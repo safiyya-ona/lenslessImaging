@@ -140,6 +140,7 @@ if __name__ == "__main__":
     else:
         print("Using CPU")
         exit()
+    train(net)
 
     torch.save(net.state_dict(), PATH)
 
