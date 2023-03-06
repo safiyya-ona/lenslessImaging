@@ -19,12 +19,20 @@ def transform(sample):
     return image
 
 
+def transform_propagated(sample):
+    """Transforms a sample to a tensor"""
+    image = to_tensor(sample)
+    image = resize(image.permute(1, 2, 0), SIZE)
+    return image
+
+
 class DiffuserCamDataset(Dataset):
     """Dataset for the DiffuserCam dataset, transforming images to tensors"""
 
-    def __init__(self, diffuers_images, ground_truth_images, transform=transform, use_diffuse_transform=False):
+    def __init__(self, diffuers_images, propagated_images, ground_truth_images, transform=transform):
         self.diffuser_images = diffuers_images
         self.ground_truth_images = ground_truth_images
+        self.propagated_images = propagated_images
         self.transform = transform
         self.simulator = Simulation()
 
@@ -34,19 +42,16 @@ class DiffuserCamDataset(Dataset):
     def __getitem__(self, idx):
         diffuser_image = self.diffuser_images[idx]
         ground_truth_image = self.ground_truth_images[idx]
+        propagated_image = self.propagated_images[idx]
 
-        x, y = None, None
-        if self.use_diffuse_transform:
-            # when testing for grayscale images
-            x = rgb_to_grayscale(
-                self.diffuser_transform(np.load(ground_truth_image)))
-            y = rgb_to_grayscale(self.transform(np.load(ground_truth_image)))
-        else:
-            # when testing for RGB images
+        x, y, z = None, None, None
+        if self.transform:
             x = self.transform(np.load(diffuser_image))
-            y = self.transform(np.load(ground_truth_image))
+            y = transform_propagated(
+                np.load(propagated_image))
+            z = self.transform(np.load(ground_truth_image))
 
-        return x, y
+        return x, y, z
 
 
 class DiffuserCam:
@@ -55,15 +60,15 @@ class DiffuserCam:
 
         self.psf = Image.open(self.path / "psf.tiff")
 
-        training_diffused, training_ground_truth = self.get_dataset_images(
+        training_diffused, training_propagated, training_ground_truth = self.get_dataset_images(
             self.path, "dataset_train.csv")
-        testing_diffused, testing_ground_truth = self.get_dataset_images(
+        testing_diffused, testing_propagated, testing_ground_truth = self.get_dataset_images(
             self.path, "dataset_test.csv")
 
         self.train_dataset = DiffuserCamDataset(
-            training_diffused, training_ground_truth)
+            training_diffused, training_propagated, training_ground_truth)
         self.test_dataset = DiffuserCamDataset(
-            testing_diffused, testing_ground_truth)
+            testing_diffused, testing_propagated, testing_ground_truth)
 
     def get_dataset_images(self, path, filename):
         """Get the images from the dataset path given on input"""
@@ -72,7 +77,7 @@ class DiffuserCam:
 
         diffuser_images, ground_truth_images, propagated_diffused_images = [], [], []
         simulator = None
-        for label in tqdm(labels):
+        for label in tqdm(labels, desc="Loading images"):
             diffuser_image = path / "diffuser_images" / \
                 label.replace(".jpg.tiff", ".npy")
             ground_truth_image = path / "ground_truth_lensed" / \
@@ -90,8 +95,22 @@ class DiffuserCam:
                     new_propagated_image = simulator.diffuse_image(new_image)
                     np.save(propagated_diffused_image,
                             new_propagated_image.cpu())
+                else:
+                    try:
+                        np.load(propagated_diffused_image)
+                    except ValueError:
+                        print(f"Image {label} is using pickle.")
+                        new_image = to_tensor(
+                            np.load(ground_truth_image)).to(DEVICE)
+                        if simulator is None:
+                            simulator = Simulation(
+                                resolution=new_image.shape[1:])
+                        new_propagated_image = simulator.diffuse_image(
+                            new_image)
+                        np.save(propagated_diffused_image,
+                                new_propagated_image.cpu(), allow_pickle=False)
                 propagated_diffused_images.append(propagated_diffused_image)
             else:
                 print(
                     f"Image {label} not found in dataset. No file named {diffuser_image} or {ground_truth_image}")
-        return diffuser_images, ground_truth_images
+        return diffuser_images, propagated_diffused_images, ground_truth_images
