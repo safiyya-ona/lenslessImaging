@@ -14,24 +14,23 @@ def validate(testing_loader, model, device=DEVICE):
         diffused, propagated, lensed = data
         diffused = diffused.to(device)
         propagated = propagated.to(device)
-        lensed = lensed[:, 1, :, :].unsqueeze(
-            1).to(device)  # only use green channel
+        lensed = lensed.to(device)
         output = model(propagated)
 
-        image = torch.permute(torch.squeeze(output, 0), (2, 1, 0))
-        label = torch.permute(torch.squeeze(lensed, 1), (2, 1, 0))
+        image = torch.permute(torch.squeeze(output), (2, 1, 0))
+        label = torch.permute(torch.squeeze(lensed), (2, 1, 0))
 
         odak.learn.tools.save_image(
-            f"results_green/output{i}.jpeg", image, cmin=0, cmax=1)
+            f"results_rgb/{i}output.jpeg", image, cmin=0, cmax=1)
 
         odak.learn.tools.save_image(
-            f"results_green/groundtruth{i}.jpeg", label, cmin=0, cmax=1)
+            f"results_rgb/{i}groundtruth.jpeg", label, cmin=0, cmax=1)
 
 
 if __name__ == "__main__":
-    network = UNet(in_channels=1, out_channels=1)  # for green channel
-    network.load_state_dict(torch.load("beam_prop_unet.pth"))
+    network = UNet(in_channels=3, out_channels=3)  # for rgb channels
+    network.load_state_dict(torch.load("beam_prop_unet_rgb_2.pth"))
     network.to(DEVICE)
     testing_loader = DataLoader(DiffuserCam(
-        DIFFUSERCAM_DIR).test_dataset)
+        DIFFUSERCAM_DIR, training=False, testing=True).test_dataset)
     validate(testing_loader, network)

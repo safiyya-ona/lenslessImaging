@@ -9,9 +9,9 @@ from lensless.helpers.diffusercam import DiffuserCam
 
 # Hyperparameters
 LEARNING_RATE = 0.001
-BATCH_SIZE = 10
+BATCH_SIZE = 5
 NUM_EPOCHS = 10
-NUM_WORKERS = 4
+NUM_WORKERS = 2
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 IMAGE_SIZE = 270
 IMAGE_WIDTH = 480
@@ -24,13 +24,14 @@ def train(data_loader, model, optimizer, loss_fn):
     loop = tqdm(data_loader)
 
     for batch_idx, (diffuser_data, propagated_data, targets) in enumerate(loop):
-        data = diffuser_data.to(DEVICE)
         propagated = propagated_data.to(DEVICE)
-        targets = targets[:, 1, :, :].unsqueeze(
-            1).to(DEVICE)
+        targets = targets.to(DEVICE)
+        try:
 
-        predictions = model(propagated)
-        loss = loss_fn(predictions, targets)
+            predictions = model(propagated)
+            loss = loss_fn(predictions, targets)
+        except:
+            print(propagated.shape, targets.shape)
 
         optimizer.zero_grad()
         loss.backward()
@@ -41,7 +42,7 @@ def train(data_loader, model, optimizer, loss_fn):
 
 
 def main():
-    model = UNet(in_channels=1, out_channels=1).to(DEVICE)
+    model = UNet(in_channels=3, out_channels=3).to(DEVICE)
     loss_fn = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
@@ -51,7 +52,7 @@ def main():
     for epoch in range(NUM_EPOCHS):
         train(training_loader, model, optimizer, loss_fn)
 
-    torch.save(model.state_dict(), "beam_prop_unet.pth")
+    torch.save(model.state_dict(), "beam_prop_unet_rgb_2.pth")
 
 
 if __name__ == "__main__":

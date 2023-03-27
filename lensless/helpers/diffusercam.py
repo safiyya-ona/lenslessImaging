@@ -55,20 +55,24 @@ class DiffuserCamDataset(Dataset):
 
 
 class DiffuserCam:
-    def __init__(self, path) -> None:
+    def __init__(self, path, training=True, testing=False) -> None:
         self.path = Path(path)
 
         self.psf = Image.open(self.path / "psf.tiff")
 
-        training_diffused, training_propagated, training_ground_truth = self.get_dataset_images(
-            self.path, "dataset_train.csv")
-        testing_diffused, testing_propagated, testing_ground_truth = self.get_dataset_images(
-            self.path, "dataset_test.csv")
+        if training:
+            training_diffused, training_propagated, training_ground_truth = self.get_dataset_images(
+                self.path, "dataset_train.csv")
+        if testing:
+            testing_diffused, testing_propagated, testing_ground_truth = self.get_dataset_images(
+                self.path, "dataset_test.csv")
 
-        self.train_dataset = DiffuserCamDataset(
-            training_diffused, training_propagated, training_ground_truth)
-        self.test_dataset = DiffuserCamDataset(
-            testing_diffused, testing_propagated, testing_ground_truth)
+        if training:
+            self.train_dataset = DiffuserCamDataset(
+                training_diffused, training_propagated, training_ground_truth)
+        if testing:
+            self.test_dataset = DiffuserCamDataset(
+                testing_diffused, testing_propagated, testing_ground_truth)
 
     def get_dataset_images(self, path, filename):
         """Get the images from the dataset path given on input"""
@@ -82,22 +86,41 @@ class DiffuserCam:
                 label.replace(".jpg.tiff", ".npy")
             ground_truth_image = path / "ground_truth_lensed" / \
                 label.replace(".jpg.tiff", ".npy")
-            propagated_diffused_image = path / "propagated_diffused_images" / \
+            propagated_diffused_image = path / "propagated_rgb_diffused_images" / \
                 label.replace(".jpg.tiff", ".npy")
             if diffuser_image.exists() and ground_truth_image.exists():
-                diffuser_images.append(diffuser_image)
-                ground_truth_images.append(ground_truth_image)
+
                 if not propagated_diffused_image.exists():
                     new_image = to_tensor(
                         np.load(ground_truth_image)).to(DEVICE)
                     if simulator is None:
                         simulator = Simulation(resolution=new_image.shape[1:])
-                    new_propagated_image = simulator.diffuse_image(new_image)
+                    new_propagated_image = simulator.diffuse_rgb_image(
+                        new_image)
                     np.save(propagated_diffused_image,
-                            new_propagated_image.cpu())
+                            new_propagated_image.cpu(), allow_pickle=False)
                 else:
                     try:
-                        np.load(propagated_diffused_image)
+                        prop_image = np.load(propagated_diffused_image)
+                        if prop_image.shape != (3, 270, 480):
+                            print(1, prop_image.shape,
+                                  propagated_diffused_image)
+                            new_image = to_tensor(
+                                np.load(ground_truth_image)).to(DEVICE)
+                            if simulator is None:
+                                simulator = Simulation(
+                                    resolution=new_image.shape[1:])
+                                new_propagated_image = simulator.diffuse_image(
+                                    new_image)
+                                if new_propagated_image.shape != (3, 270, 480):
+                                    print(new_propagated_image.shape,
+                                          new_image.shape, propagated_diffused_image)
+                                    continue
+                                else:
+                                    np.save(propagated_diffused_image,
+                                            new_propagated_image.cpu(), allow_pickle=False)
+
+                                continue
                     except ValueError:
                         print(f"Image {label} is using pickle.")
                         new_image = to_tensor(
@@ -109,8 +132,15 @@ class DiffuserCam:
                             new_image)
                         np.save(propagated_diffused_image,
                                 new_propagated_image.cpu(), allow_pickle=False)
-                propagated_diffused_images.append(propagated_diffused_image)
+                    diffuser_images.append(diffuser_image)
+                    ground_truth_images.append(ground_truth_image)
+                    propagated_diffused_images.append(
+                        propagated_diffused_image)
             else:
                 print(
                     f"Image {label} not found in dataset. No file named {diffuser_image} or {ground_truth_image}")
         return diffuser_images, propagated_diffused_images, ground_truth_images
+
+
+if __name__ == "__main__":
+    diff = DiffuserCam("/cs/student/projects1/2020/sonanuga/dataset")

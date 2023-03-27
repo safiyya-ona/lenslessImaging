@@ -13,18 +13,6 @@ IMAGE_SIZE = 270, 480
 
 
 device = torch.device('cuda')
-PATH = './beam_prop1.pth'
-simulator = Simulation(resolution=IMAGE_SIZE, batch_size=BATCH_SIZE)
-
-
-class BeamPropagation(nn.Module):
-    def __init__(self):
-        super(BeamPropagation, self).__init__()
-        self.simulator = simulator
-
-    def forward(self, x: torch.Tensor):
-
-        return self.simulator.diffuse_images_loop(x.to(device))
 
 
 class DoubleConv(nn.Module):
@@ -44,7 +32,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=3, out_channels=1, features=[64, 128, 256, 512]) -> None:
+    def __init__(self, in_channels=3, out_channels=1, features=[16, 32, 64, 128, 256, 512, 1024]) -> None:
         super(UNet, self).__init__()
         self.ups = nn.ModuleList()
         self.downs = nn.ModuleList()  # want to be able to do model eval for batch norm
