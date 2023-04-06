@@ -44,7 +44,7 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=3, out_channels=1, features=[64, 128, 256, 512]) -> None:
+    def __init__(self, in_channels=3, out_channels=1, features=[64, 128, 256, 512, 1024]) -> None:
         super(UNet, self).__init__()
         self.ups = nn.ModuleList()
         self.downs = nn.ModuleList()  # want to be able to do model eval for batch norm

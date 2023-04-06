@@ -25,7 +25,7 @@ def train(data_loader, model, optimizer, loss_fn):
 
     for batch_idx, (diffuser_data, propagated_data, targets) in enumerate(loop):
         optimizer.zero_grad()
-        propagated = propagated_data.to(DEVICE)
+        propagated = diffuser_data.to(DEVICE)
         targets = targets.to(DEVICE)
 
         predictions = model(propagated)
@@ -43,13 +43,19 @@ def main():
     loss_fn = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
+    # model.load_state_dict(torch.load("conditional_unet_diffuser10.pth"))
+    # model.eval()
     diffuser_collection: "DiffuserCam" = DiffuserCam(DIFFUSERCAM_DIR)
     training_loader: DataLoader = DataLoader(
         diffuser_collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
     for epoch in range(NUM_EPOCHS):
         train(training_loader, model, optimizer, loss_fn)
 
-    torch.save(model.state_dict(), "conditional_unet_prop10.pth")
+        # if epoch % 9 == 0 and epoch != 0:
+        #     torch.save(model.state_dict(),
+        #                f"conditional_unet_diffuser{epoch + 10}.pth")
+
+    torch.save(model.state_dict(), "conditional_unet_diffuser10.pth")
 
 
 if __name__ == "__main__":
