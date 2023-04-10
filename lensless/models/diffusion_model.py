@@ -169,6 +169,7 @@ class UNet(nn.Module):
         self.bot2 = DoubleConv(1024, 1024)
         self.bot3 = DoubleConv(1024, 512)
 
+        self.up0 = UpBlock(1024, 256, self.timestep_dim)
         self.up1 = UpBlock(512, 128, self.timestep_dim)
         # self.up_att1 = AttentionBlock(128)
         self.up2 = UpBlock(256, 64, self.timestep_dim)
@@ -185,12 +186,14 @@ class UNet(nn.Module):
         # x3 = self.down_att2(x3)
         x4 = self.down3(x3, t)
         # x4 = self.down_att3(x4)
+        x5 = self.down4(x4, t)
 
-        x4 = self.bot1(x4)
-        x4 = self.bot2(x4)
-        x4 = self.bot3(x4)
+        x5 = self.bot1(x5)
+        x5 = self.bot2(x5)
+        x5 = self.bot3(x5)
 
-        x = self.up1(x4, x3, t)
+        x = self.up0(x5, x4, t)
+        x = self.up1(x, x3, t)
         # x = self.up_att1(x)
         x = self.up2(x, x2, t)
         # x = self.up_att2(x)

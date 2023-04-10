@@ -27,7 +27,7 @@ def train(data_loader, model, optimizer, loss_fn):
         optimizer.zero_grad()
         images = diffuser_data.to(DEVICE)
         targets = targets.to(DEVICE)
-        t = torch.full((diffuser_data,), TIMESTEPS).to(DEVICE)
+        t = torch.full((diffuser_data.shape[0],), TIMESTEPS).to(DEVICE)
 
         predictions = model(images, t)
         loss = loss_fn(predictions, targets)
