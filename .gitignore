@@ -133,3 +133,7 @@ misc/
 lensless/helpers/images
 results*
 *.pth
+example.py
+odak_crash.py
+operators.py
+perlin_noise_psf.py

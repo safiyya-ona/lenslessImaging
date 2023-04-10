@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from lensless.models.simple_unet import UNet
-from lensless.models.attention_unet import AttentionUNet
+# from lensless.models.diffusion_unet import UNet
+from lensless.models.diffusion_model import UNet
 from lensless.helpers.diffusercam import DiffuserCam
 
 # Hyperparameters
@@ -18,28 +18,28 @@ IMAGE_WIDTH = 480
 PIN_MEMORY = True
 LOAD_MODEL = False
 DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
+TIMESTEPS = 10
 
 
 def train(data_loader, model, optimizer, loss_fn):
     loop = tqdm(data_loader)
-
     for batch_idx, (diffuser_data, propagated_data, targets) in enumerate(loop):
         optimizer.zero_grad()
-        propagated = diffuser_data.to(DEVICE)
+        images = diffuser_data.to(DEVICE)
         targets = targets.to(DEVICE)
+        t = torch.full((diffuser_data,), TIMESTEPS).to(DEVICE)
 
-        predictions = model(propagated)
+        predictions = model(images, t)
         loss = loss_fn(predictions, targets)
 
         loss.backward()
         optimizer.step()
 
-        # update progress bar
         loop.set_postfix(loss=loss.item())
 
 
 def main():
-    model = AttentionUNet(3, 3).to(DEVICE)
+    model = UNet(3, 3).to(DEVICE)
     loss_fn = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     diffuser_collection: "DiffuserCam" = DiffuserCam(DIFFUSERCAM_DIR)
@@ -47,7 +47,8 @@ def main():
         diffuser_collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
     for epoch in range(NUM_EPOCHS):
         train(training_loader, model, optimizer, loss_fn)
-    torch.save(model.state_dict(), "conditional_unet_diffuser10.pth")
+
+    torch.save(model.state_dict(), "diffusion_model_diffuser10.pth")
 
 
 if __name__ == "__main__":
