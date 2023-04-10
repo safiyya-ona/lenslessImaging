@@ -205,16 +205,11 @@ def parse_arguments() -> argparse.Namespace:
 
 def main():
     args = parse_arguments()
-    # image_sensor = diffuse_image_from_filename(
-    #     args.image_path, distance_to_camera=0.1)
-    # odak.learn.tools.save_image(
-    #     args.filename, image_sensor, cmin=0, cmax=1)
     image = odak.learn.tools.load_image(
         args.image_path, normalizeby=255., torch_style=True)
 
     sim = Simulation(resolution=image.shape[1:])
     rgb_diffused = sim.diffuse_rgb_image(image)
-    print(rgb_diffused.shape)
     odak.learn.tools.save_image(
         args.filename, rgb_diffused, cmin=0, cmax=1)
 

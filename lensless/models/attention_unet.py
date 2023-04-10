@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .unet import DoubleConv
+from .simple_unet import DoubleConv
 
 
-class AttentionBlock(nn.Module):
+class AttentionGateBlock(nn.Module):
     def __init__(self, in_channels, gating_channels, inter_channels=None) -> None:
-        super(AttentionBlock, self).__init__()
+        super(AttentionGateBlock, self).__init__()
 
         self.in_channels = in_channels
         self.gating_channels = gating_channels
@@ -45,11 +45,9 @@ class AttentionBlock(nn.Module):
 
         sigmoid_psi_f = torch.sigmoid(self.psi(f))
 
-        # upsample the attention map to the size of the input features x_l
         up_sigmoid_psi_f = F.interpolate(
             sigmoid_psi_f, size=input_size[2:], mode='bilinear', align_corners=True)
 
-        # multiply the attention map with the input features x_l
         y = up_sigmoid_psi_f * x
         return self.W(y)
 
@@ -68,10 +66,9 @@ class AttentionUNet(nn.Module):
 
         for feature in reversed(features):
             self.ups.append(
-                # doubles height and width of image
                 nn.ConvTranspose2d(feature*2, feature, kernel_size=2, stride=2)
             )
-            self.attention_blocks.append(AttentionBlock(
+            self.attention_blocks.append(AttentionGateBlock(
                 in_channels=feature, gating_channels=feature, inter_channels=feature//2))
             self.ups.append(DoubleConv(feature*2, feature))
 
@@ -88,21 +85,15 @@ class AttentionUNet(nn.Module):
             x = self.pool(x)
 
         x = self.bottleneck(x)
-        # reverse the skip connections
         skip_connections = skip_connections[::-1]
 
-        # want to do the up and double conv in pairs therefore step of 2
         for idx in range(0, len(self.ups), 2):
             x = self.ups[idx](x)
-            # want to take every one
             skip_connection = skip_connections[idx//2]
 
             if x.shape != skip_connection.shape:
-                # resize to the size of the skip connection to image height and width
-                # x = resize(x, size=skip_connection.shape[2:])
                 x = F.interpolate(
                     x, size=skip_connection.shape[2:], mode='bilinear', align_corners=True)
-            # concat along the channel dimension
             skip_connection = self.attention_blocks[idx//2](x, skip_connection)
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ups[idx+1](concat_skip)
