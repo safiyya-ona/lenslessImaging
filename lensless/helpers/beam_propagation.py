@@ -12,23 +12,14 @@ PI_MULT = 100 * odak.pi
 
 
 class Simulation:
-    def __init__(self, wavelengths=DEFAULT_WAVELENGTHS, pixel_pitch=8e-6, resolution=[270, 480], propagation_type='Bandlimited Angular Spectrum', batch_size=20) -> None:
+    def __init__(self, wavelengths=DEFAULT_WAVELENGTHS, pixel_pitch=8e-6, resolution=[270, 480], propagation_type='Bandlimited Angular Spectrum') -> None:
         self.wavelengths = wavelengths
         self.pixel_pitch = pixel_pitch
         self.resolution = resolution
         self.propagation_type = propagation_type
         self.anchor_wavelength = 532e-9
         self.diffuser_phase = torch.rand(*resolution) * PI_MULT
-        self.batch_size = batch_size
-        self.diffuser_phases = self.diffuser_phase.repeat(
-            self.batch_size, 1, 1)
         self.diffuser_mask = None
-        self.input_fields = None
-
-    def set_batch_size(self, batch_size) -> None:
-        self.batch_size = batch_size
-        self.diffuser_phases = self.diffuser_phase.repeat(
-            self.batch_size, 1, 1)
 
     def simulate(self, input_field: torch.Tensor, distance_to_camera=0.1, distance_to_sensor=4e-3) -> torch.Tensor:
         total_image_sensor = torch.zeros_like(
@@ -48,27 +39,6 @@ class Simulation:
             image_sensor = (odak.learn.wave.calculate_amplitude(
                 field_image_sensor) ** 2).to(input_field.device)
             total_image_sensor += image_sensor / len(self.wavelengths)
-        return total_image_sensor
-
-    def simulate_batch(self, input_fields: torch.Tensor, distance_to_camera=0.1, distance_to_sensor=4e-3) -> torch.Tensor:
-
-        total_image_sensor = torch.zeros_like(
-            input_fields, dtype=torch.float32).to(input_fields.device)
-        self.diffuser_phases = self.diffuser_phases.to(input_fields.device)
-        for wavelength in self.wavelengths:
-            self.diffuser_mask = odak.learn.wave.generate_complex_field(
-                torch.ones_like(self.diffuser_phases).to(input_fields.device), self.diffuser_phases * (wavelength / self.anchor_wavelength)).to(input_fields.device)
-            wavenumber = odak.wave.wavenumber(wavelength)
-            field_before_diffuser = odak.learn.wave.propagate_beam(
-                input_fields, wavenumber, distance_to_camera, self.pixel_pitch, wavelength, self.propagation_type, [True, False, True]).to(input_fields.device)
-            field_after_diffuser = (
-                field_before_diffuser * self.diffuser_mask).to(input_fields.device)
-            field_image_sensor = odak.learn.wave.propagate_beam(
-                field_after_diffuser, wavenumber, distance_to_sensor, self.pixel_pitch, wavelength, self.propagation_type, [True, False, True]).to(input_fields.device)
-            image_sensor = (odak.learn.wave.calculate_amplitude(
-                field_image_sensor) ** 2).to(input_fields.device)
-            total_image_sensor += image_sensor / len(self.wavelengths)
-
         return total_image_sensor
 
     def diffuse_rgb_image(self, image: torch.Tensor, distance_to_camera=0.1, distance_to_sensor=4e-3) -> torch.Tensor:
@@ -101,31 +71,6 @@ class Simulation:
         image_sensor = self.simulate(
             input_field, distance_to_camera, distance_to_sensor).unsqueeze(0)
         return image_sensor
-
-    def diffuse_images(self, images: torch.Tensor, distance_to_camera=0.1, distance_to_sensor=4e-3) -> torch.Tensor:
-        # Diffuse a batch of images from image tensor
-        if self.input_fields is not None:
-            self.simulate_batch(self.input_fields.to(
-                images.device), distance_to_camera, distance_to_sensor).unsqueeze(1)
-        else:
-            self.input_fields = self.get_batch_input_fields(images)
-        return self.simulate_batch(self.input_fields.to(images.device), distance_to_camera, distance_to_sensor).unsqueeze(1).to(images.device)
-
-    def diffuse_images_loop(self, images: torch.Tensor, distance_to_camera=0.1, distance_to_sensor=4e-3) -> torch.Tensor:
-        # Diffuse a batch of images from image tensor
-        images_sensor = torch.zeros_like(images[:, 0, :, :]).to(images.device)
-        for i in range(images.shape[0]):
-            images_sensor[i] = self.simulate(get_image_input_field(images[i]).to(
-                images.device))
-        return images_sensor.unsqueeze(1).to(images.device)
-
-    def get_batch_input_fields(self, images: torch.Tensor):
-        # Generate input field of a batch of images
-        input_amplitude = images[:, 1, :, :]
-        input_phase = torch.rand_like(input_amplitude)
-        self.input_fields = odak.learn.wave.generate_complex_field(
-            input_amplitude.to(images.device), input_phase.to(images.device))
-        return self.input_fields.to(images.device)
 
 
 def diffuse_image(image: torch.Tensor, num_wavelengths=300, distance_to_camera=0.1, distance_to_sensor=4e-3) -> torch.Tensor:

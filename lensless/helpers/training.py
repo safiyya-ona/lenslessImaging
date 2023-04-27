@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from lensless.models.simple_unet import UNet
-from lensless.models.attention_unet import AttentionUNet
+from lensless.models.unets.simple_unet import UNet
+from lensless.models.unets.attention_unet import AttentionUNet
 from lensless.helpers.diffusercam import DiffuserCam
 
 # Hyperparameters

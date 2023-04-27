@@ -3,7 +3,7 @@ import torch
 from pathlib import Path
 from PIL import Image
 from torch.utils.data import Dataset
-from torchvision.transforms.functional import to_tensor, resize, rgb_to_grayscale
+from torchvision.transforms.functional import to_tensor, resize
 from tqdm import tqdm
 from lensless.helpers.beam_propagation import Simulation
 
@@ -12,8 +12,14 @@ SIZE = 270, 480
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
+def region_of_interest(x):
+    return x[..., 60:270, 60:440]
+
+
 def transform(sample):
     """Transforms a sample to a tensor"""
+    # image = np.flip(np.flipud(image), axis=2)
+    # image = image.copy()
     image = to_tensor(sample)
     image = resize(image, SIZE)
     return image
@@ -29,12 +35,11 @@ def transform_propagated(sample):
 class DiffuserCamDataset(Dataset):
     """Dataset for the DiffuserCam dataset, transforming images to tensors"""
 
-    def __init__(self, diffuers_images, propagated_images, ground_truth_images, transform=transform):
-        self.diffuser_images = diffuers_images
+    def __init__(self, diffuser_images, propagated_images, ground_truth_images, transform=transform):
+        self.diffuser_images = diffuser_images
         self.ground_truth_images = ground_truth_images
         self.propagated_images = propagated_images
         self.transform = transform
-        self.simulator = Simulation()
 
     def __len__(self):
         return len(self.diffuser_images)
@@ -78,7 +83,6 @@ class DiffuserCam:
         """Get the images from the dataset path given on input"""
         with open(path / filename) as f:
             labels = f.read().split()
-
         diffuser_images, ground_truth_images, propagated_diffused_images = [], [], []
         simulator = None
         for label in tqdm(labels, desc="Loading images"):
@@ -89,7 +93,6 @@ class DiffuserCam:
             propagated_diffused_image = path / "propagated_rgb_diffused_images" / \
                 label.replace(".jpg.tiff", ".npy")
             if diffuser_image.exists() and ground_truth_image.exists():
-
                 if not propagated_diffused_image.exists():
                     new_image = to_tensor(
                         np.load(ground_truth_image)).to(DEVICE)
@@ -103,14 +106,12 @@ class DiffuserCam:
                     try:
                         prop_image = np.load(propagated_diffused_image)
                         if prop_image.shape != (3, 270, 480):
-                            print(1, prop_image.shape,
-                                  propagated_diffused_image)
                             new_image = to_tensor(
                                 np.load(ground_truth_image)).to(DEVICE)
                             if simulator is None:
                                 simulator = Simulation(
                                     resolution=new_image.shape[1:])
-                                new_propagated_image = simulator.diffuse_image(
+                                new_propagated_image = simulator.diffuse_rgb_image(
                                     new_image)
                                 if new_propagated_image.shape != (3, 270, 480):
                                     print(new_propagated_image.shape,
@@ -128,7 +129,7 @@ class DiffuserCam:
                         if simulator is None:
                             simulator = Simulation(
                                 resolution=new_image.shape[1:])
-                        new_propagated_image = simulator.diffuse_image(
+                        new_propagated_image = simulator.diffuse_rgb_image(
                             new_image)
                         np.save(propagated_diffused_image,
                                 new_propagated_image.cpu(), allow_pickle=False)

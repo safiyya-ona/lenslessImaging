@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from lensless.models.simple_unet import UNet
-from lensless.models.attention_unet import AttentionUNet
+from lensless.models.unets.simple_unet import UNet
+from lensless.models.unets.attention_unet import AttentionUNet
 from lensless.helpers.diffusercam import DiffuserCam
 
 # Hyperparameters
@@ -22,7 +22,7 @@ DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
 
 def train(data_loader, model, optimizer, loss_fn):
     loop = tqdm(data_loader)
-
+    loss = None
     for batch_idx, (diffuser_data, propagated_data, targets) in enumerate(loop):
         optimizer.zero_grad()
         propagated = diffuser_data.to(DEVICE)
@@ -36,18 +36,26 @@ def train(data_loader, model, optimizer, loss_fn):
 
         # update progress bar
         loop.set_postfix(loss=loss.item())
+    return loss
 
 
 def main():
-    model = AttentionUNet(3, 3).to(DEVICE)
+    model = UNet(3, 3).to(DEVICE)
     loss_fn = nn.MSELoss()
+    loss_history = []
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     diffuser_collection: "DiffuserCam" = DiffuserCam(DIFFUSERCAM_DIR)
     training_loader: DataLoader = DataLoader(
         diffuser_collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
     for epoch in range(NUM_EPOCHS):
-        train(training_loader, model, optimizer, loss_fn)
-    torch.save(model.state_dict(), "conditional_unet_diffuser10.pth")
+        loss = train(training_loader, model, optimizer, loss_fn)
+        loss_history.append(loss.item())
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss_history,
+    }, f"conditional_unet_diffuser24-512.pth")
 
 
 if __name__ == "__main__":
