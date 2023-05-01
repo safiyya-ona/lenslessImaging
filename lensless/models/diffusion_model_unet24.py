@@ -174,7 +174,7 @@ class QKVAttention(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, timestep_dim=256, num_classes=None):
+    def __init__(self, in_channels, out_channels, timestep_dim=32, num_classes=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels

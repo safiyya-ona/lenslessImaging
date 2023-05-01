@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 from pathlib import Path
-from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import to_tensor, resize
 from tqdm import tqdm
@@ -18,8 +17,6 @@ def region_of_interest(x):
 
 def transform(sample):
     """Transforms a sample to a tensor"""
-    # image = np.flip(np.flipud(image), axis=2)
-    # image = image.copy()
     image = to_tensor(sample)
     image = resize(image, SIZE)
     return image
@@ -63,19 +60,15 @@ class DiffuserCam:
     def __init__(self, path, training=True, testing=False) -> None:
         self.path = Path(path)
 
-        self.psf = Image.open(self.path / "psf.tiff")
-
         if training:
             training_diffused, training_propagated, training_ground_truth = self.get_dataset_images(
                 self.path, "dataset_train.csv")
+            self.train_dataset = DiffuserCamDataset(
+                training_diffused, training_propagated, training_ground_truth)
+
         if testing:
             testing_diffused, testing_propagated, testing_ground_truth = self.get_dataset_images(
                 self.path, "dataset_test.csv")
-
-        if training:
-            self.train_dataset = DiffuserCamDataset(
-                training_diffused, training_propagated, training_ground_truth)
-        if testing:
             self.test_dataset = DiffuserCamDataset(
                 testing_diffused, testing_propagated, testing_ground_truth)
 

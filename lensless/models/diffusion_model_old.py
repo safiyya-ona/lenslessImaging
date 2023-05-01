@@ -61,56 +61,26 @@ class DoubleConv(nn.Module):
         return self.conv(x)
 
 
-class SingleConvBn(nn.Module):
-    def __init__(self, in_channels, out_channels) -> None:
-        super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.conv(x)
-
-
-class DoubleConvBn(nn.Module):
-    def __init__(self, in_channels, out_channels) -> None:
-        super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, 3, 1, 1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.conv(x)
-
-
 class DownBlock(TimestepBlock):
     def __init__(self, in_channels, out_channels, timestep_dim):
         super().__init__()
-        self.conv = DoubleConvBn(in_channels, out_channels)
+        self.conv = DoubleConv(in_channels, out_channels)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.emb_layer = nn.Sequential(
             nn.SiLU(), nn.Linear(timestep_dim, out_channels))
 
     def forward(self, x, emb):
         x = self.conv(x)
-        x_pool = self.pool(x)
+        x = self.pool(x)
         emb = self.emb_layer(emb)[:, :, None, None].repeat(
-            1, 1, x_pool.shape[-2], x_pool.shape[-1])
-        return x, x_pool + emb
+            1, 1, x.shape[-2], x.shape[-1])
+        return x + emb
 
 
 class UpBlock(TimestepBlock):
     def __init__(self, in_channels, out_channels, timestep_dim):
         super().__init__()
-        self.conv = nn.Sequential(SingleConvBn(
-            in_channels*2, in_channels), DoubleConvBn(in_channels, out_channels))
+        self.conv = DoubleConv(in_channels, out_channels)
         self.emb_layer = nn.Sequential(
             nn.SiLU(), nn.Linear(timestep_dim, out_channels))
 
@@ -174,7 +144,7 @@ class QKVAttention(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, timestep_dim=256, num_classes=None):
+    def __init__(self, in_channels, out_channels, timestep_dim=32, num_classes=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -186,36 +156,40 @@ class UNet(nn.Module):
         if num_classes is not None:
             self.label_embed = nn.Embedding(num_classes, timestep_dim)
 
-        self.down1 = DownBlock(in_channels, 24, self.timestep_dim)
-        self.down2 = DownBlock(24, 64, self.timestep_dim)
-        self.down3 = DownBlock(64, 128, self.timestep_dim)
-        self.down4 = DownBlock(128, 256, self.timestep_dim)
-        self.down5 = DownBlock(256, 512, self.timestep_dim)
+        self.inc = DoubleConv(in_channels, 64)
+        self.down1 = DownBlock(64, 128, self.timestep_dim)
+        self.down2 = DownBlock(128, 256, self.timestep_dim)
+        self.down3 = DownBlock(256, 512, self.timestep_dim)
+        self.down4 = DownBlock(512, 512, self.timestep_dim)
 
-        self.bot1 = DoubleConv(512, 512)
+        self.bot1 = DoubleConv(512, 1024)
+        self.bot2 = DoubleConv(1024, 1024)
+        self.bot3 = DoubleConv(1024, 512)
 
-        self.up5 = UpBlock(512, 256, self.timestep_dim)
-        self.up4 = UpBlock(256, 128, self.timestep_dim)
+        self.up0 = UpBlock(1024, 256, self.timestep_dim)
+        self.up1 = UpBlock(512, 128, self.timestep_dim)
+        # self.up_att1 = AttentionBlock(128)
+        self.up2 = UpBlock(256, 64, self.timestep_dim)
+        # self.up_att2 = AttentionBlock(64)
         self.up3 = UpBlock(128, 64, self.timestep_dim)
-        self.up2 = UpBlock(64, 24, self.timestep_dim)
-        self.up1 = UpBlock(24, 24, self.timestep_dim)
-        self.outc = nn.Conv2d(24, out_channels, 1)
+        # self.up_att3 = AttentionBlock(64)
+        self.outc = nn.Conv2d(64, out_channels, 1)
 
     def unet_forward(self, x, t):
-        x1, x = self.down1(x, t)
-        x2, x = self.down2(x, t)
-        x3, x = self.down3(x, t)
-        x4, x = self.down4(x, t)
-        x5, x = self.down5(x, t)
+        x1 = self.inc(x)
+        x2 = self.down1(x1, t)
+        x3 = self.down2(x2, t)
+        x4 = self.down3(x3, t)
+        x5 = self.down4(x4, t)
 
-        x = self.bot1(x)
+        x5 = self.bot1(x5)
+        x5 = self.bot2(x5)
+        x5 = self.bot3(x5)
 
-        x = self.up5(x, x5, t)
-        x = self.up4(x, x4, t)
-        x = self.up3(x, x3, t)
+        x = self.up0(x5, x4, t)
+        x = self.up1(x, x3, t)
         x = self.up2(x, x2, t)
-        x = self.up1(x, x1, t)
-
+        x = self.up3(x, x1, t)
         x = self.outc(x)
         return x
 

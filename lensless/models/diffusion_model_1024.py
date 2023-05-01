@@ -191,9 +191,11 @@ class UNet(nn.Module):
         self.down3 = DownBlock(64, 128, self.timestep_dim)
         self.down4 = DownBlock(128, 256, self.timestep_dim)
         self.down5 = DownBlock(256, 512, self.timestep_dim)
+        self.down6 = DownBlock(512, 1024, self.timestep_dim)
 
-        self.bot1 = DoubleConv(512, 512)
+        self.bot1 = DoubleConv(1024, 1024)
 
+        self.up6 = UpBlock(1024, 512, self.timestep_dim)
         self.up5 = UpBlock(512, 256, self.timestep_dim)
         self.up4 = UpBlock(256, 128, self.timestep_dim)
         self.up3 = UpBlock(128, 64, self.timestep_dim)
@@ -207,9 +209,11 @@ class UNet(nn.Module):
         x3, x = self.down3(x, t)
         x4, x = self.down4(x, t)
         x5, x = self.down5(x, t)
+        x6, x = self.down6(x, t)
 
         x = self.bot1(x)
 
+        x = self.up6(x, x6, t)
         x = self.up5(x, x5, t)
         x = self.up4(x, x4, t)
         x = self.up3(x, x3, t)
