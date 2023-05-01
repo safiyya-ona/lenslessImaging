@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from lensless.models.unets.simple_unet import UNet
-from lensless.models.unets.attention_unet import AttentionUNet
 from lensless.helpers.diffusercam import DiffuserCam
 
 # Hyperparameters
@@ -17,7 +16,6 @@ IMAGE_SIZE = 270
 IMAGE_WIDTH = 480
 PIN_MEMORY = True
 LOAD_MODEL = False
-DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
 
 
 def train(data_loader, model, optimizer, loss_fn):
@@ -34,23 +32,4 @@ def train(data_loader, model, optimizer, loss_fn):
         loss.backward()
         optimizer.step()
 
-        # update progress bar
         loop.set_postfix(loss=loss.item())
-
-
-def main():
-    model = AttentionUNet(3, 3).to(DEVICE)
-    loss_fn = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-    diffuser_collection: "DiffuserCam" = DiffuserCam(DIFFUSERCAM_DIR)
-    training_loader: DataLoader = DataLoader(
-        diffuser_collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
-    for epoch in range(NUM_EPOCHS):
-        train(training_loader, model, optimizer, loss_fn)
-
-    torch.save(model.state_dict(), "conditional_unet_prop10.pth")
-
-
-if __name__ == "__main__":
-    main()
