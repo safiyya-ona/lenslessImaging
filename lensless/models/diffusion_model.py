@@ -5,16 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# utils
 
-
-def zero_module(module):
-    """
-    Zero out the parameters of a module and return it.
-    """
-    for p in module.parameters():
-        p.detach().zero_()
-    return module
+TIMESTEP_DIM = 270 * 4
 
 
 def timestep_embedding(timesteps, dim):
@@ -31,8 +23,6 @@ def timestep_embedding(timesteps, dim):
         embedding = torch.cat(
             [embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
     return embedding.to(torch.float32)
-
-# modules
 
 
 class TimestepBlock(nn.Module):
@@ -126,55 +116,8 @@ class UpBlock(TimestepBlock):
         return x + emb
 
 
-class AttentionBlock(nn.Module):
-    def __init__(self, channels, num_heads=1):
-        super().__init__()
-        self.norm = nn.GroupNorm(8, channels)
-        self.qkv = nn.Conv1d(channels, channels * 3, 1)
-        self.attention = QKVAttention(num_heads)
-        self.proj_out = zero_module(nn.Conv1d(channels, channels, 1))
-
-    def forward(self, x):
-        b, c, *spatial = x.shape
-        qkv = self.qkv(self.norm(x).view(b, c, -1))
-        h = self.attention(qkv)
-        h = self.proj_out(h)
-        return x + h.reshape(b, c, *spatial)
-
-
-class QKVAttention(nn.Module):
-    """
-    A module which performs QKV attention and splits in a different order.
-    """
-
-    def __init__(self, n_heads):
-        super().__init__()
-        self.n_heads = n_heads
-
-    def forward(self, qkv):
-        """
-        Apply QKV attention.
-        :param qkv: an [N x (3 * H * C) x T] tensor of Qs, Ks, and Vs.
-        :return: an [N x (H * C) x T] tensor after attention.
-        """
-        bs, width, length = qkv.shape
-        assert width % (3 * self.n_heads) == 0
-        ch = width // (3 * self.n_heads)
-        q, k, v = qkv.chunk(3, dim=1)
-        scale = 1 / math.sqrt(math.sqrt(ch))
-        weight = torch.einsum(
-            "bct,bcs->bts",
-            (q * scale).view(bs * self.n_heads, ch, length),
-            (k * scale).view(bs * self.n_heads, ch, length),
-        )  # More stable with f16 than dividing afterwards
-        weight = torch.softmax(weight.float(), dim=-1).type(weight.dtype)
-        a = torch.einsum("bts,bcs->bct", weight,
-                         v.reshape(bs * self.n_heads, ch, length))
-        return a.reshape(bs, -1, length)
-
-
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, timestep_dim=256, num_classes=None):
+    def __init__(self, in_channels, out_channels, timestep_dim=TIMESTEP_DIM, num_classes=None):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -186,31 +129,27 @@ class UNet(nn.Module):
         if num_classes is not None:
             self.label_embed = nn.Embedding(num_classes, timestep_dim)
 
-        self.down1 = DownBlock(in_channels, 24, self.timestep_dim)
-        self.down2 = DownBlock(24, 64, self.timestep_dim)
-        self.down3 = DownBlock(64, 128, self.timestep_dim)
-        self.down4 = DownBlock(128, 256, self.timestep_dim)
-        self.down5 = DownBlock(256, 512, self.timestep_dim)
+        self.down1 = DownBlock(in_channels, 64, self.timestep_dim)
+        self.down2 = DownBlock(64, 128, self.timestep_dim)
+        self.down3 = DownBlock(128, 256, self.timestep_dim)
+        self.down4 = DownBlock(256, 512, self.timestep_dim)
 
         self.bot1 = DoubleConv(512, 512)
 
-        self.up5 = UpBlock(512, 256, self.timestep_dim)
-        self.up4 = UpBlock(256, 128, self.timestep_dim)
-        self.up3 = UpBlock(128, 64, self.timestep_dim)
-        self.up2 = UpBlock(64, 24, self.timestep_dim)
-        self.up1 = UpBlock(24, 24, self.timestep_dim)
-        self.outc = nn.Conv2d(24, out_channels, 1)
+        self.up4 = UpBlock(512, 256, self.timestep_dim)
+        self.up3 = UpBlock(256, 128, self.timestep_dim)
+        self.up2 = UpBlock(128, 64, self.timestep_dim)
+        self.up1 = UpBlock(64, 64, self.timestep_dim)
+        self.outc = nn.Conv2d(64, out_channels, 1)
 
     def unet_forward(self, x, t):
         x1, x = self.down1(x, t)
         x2, x = self.down2(x, t)
         x3, x = self.down3(x, t)
         x4, x = self.down4(x, t)
-        x5, x = self.down5(x, t)
 
         x = self.bot1(x)
 
-        x = self.up5(x, x5, t)
         x = self.up4(x, x4, t)
         x = self.up3(x, x3, t)
         x = self.up2(x, x2, t)

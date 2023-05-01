@@ -20,7 +20,7 @@ LOAD_MODEL = False
 DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
 
 
-def train(data_loader, model, optimizer, loss_fn):
+def run_epoch(data_loader, model, optimizer, loss_fn):
     loop = tqdm(data_loader)
     loss = None
     for batch_idx, (diffuser_data, propagated_data, targets) in enumerate(loop):
@@ -34,29 +34,15 @@ def train(data_loader, model, optimizer, loss_fn):
         loss.backward()
         optimizer.step()
 
-        # update progress bar
         loop.set_postfix(loss=loss.item())
     return loss
 
 
-def main():
-    model = UNet(3, 3).to(DEVICE)
+def train_unet(model, collection, save_model_path):
+    data_loader = DataLoader(
+        collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=PIN_MEMORY, num_workers=NUM_WORKERS)
     loss_fn = nn.MSELoss()
-    loss_history = []
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    diffuser_collection: "DiffuserCam" = DiffuserCam(DIFFUSERCAM_DIR)
-    training_loader: DataLoader = DataLoader(
-        diffuser_collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
     for epoch in range(NUM_EPOCHS):
-        loss = train(training_loader, model, optimizer, loss_fn)
-        loss_history.append(loss.item())
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'loss': loss_history,
-    }, f"conditional_unet_diffuser24-512.pth")
-
-
-if __name__ == "__main__":
-    main()
+        loss = run_epoch(data_loader, model, optimizer, loss_fn)
+    torch.save(model.state_dict(), save_model_path)

@@ -1,11 +1,12 @@
 from tqdm import tqdm
 from lensless.helpers.diffusercam import DiffuserCam
 from lensless.models.diffusion_model import UNet
-from lensless.helpers.utils import extract, Variance
+from lensless.helpers.utils import extract, Variance, normalize_tensor, transform_sample
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from torchvision.transforms.functional import rotate
 import odak
 
 DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
@@ -13,20 +14,14 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIMESTEPS = 10
 
 
-def normalize_tensor(x):
-    return (x - x.min()) / (x.max() - x.min())
-
-
 @torch.no_grad()
 def p_sample(model, x, variance: Variance, t, t_index):
-    betas_t = extract(variance.betas, t, x.shape)
+    betas_t = extract(variance.get_betas(), t, x.shape)
     sqrt_one_minus_alphas_cumprod_t = extract(
-        variance.sqrt_one_minus_alphas_cumprod, t, x.shape
+        variance.get_sqrt_one_minus_alphas_cumprod(), t, x.shape
     )
-    sqrt_recip_alphas_t = extract(variance.sqrt_recip_alphas, t, x.shape)
+    sqrt_recip_alphas_t = extract(variance.get_sqrt_recip_alphas(), t, x.shape)
 
-    # Equation 11 in the paper
-    # Use our model (noise predictor) to predict the mean
     model_mean = sqrt_recip_alphas_t * (
         x - betas_t * model(x, t) / sqrt_one_minus_alphas_cumprod_t
     )
@@ -34,57 +29,60 @@ def p_sample(model, x, variance: Variance, t, t_index):
     if t_index == 0:
         return model_mean
     else:
-        posterior_variance_t = extract(variance.posterior_variance, t, x.shape)
-        noise = torch.randn_like(x)
-        # Algorithm 2 line 4:
+        posterior_variance_t = extract(
+            variance.get_posterior_variance(), t, x.shape)
         return model_mean + torch.sqrt(posterior_variance_t) * x
 
 
 @torch.no_grad()
-def p_sample_loop(model, diffused: torch.Tensor, variance, timesteps=10):
+def p_sample_loop(model, diffused: torch.Tensor, variance, timesteps=TIMESTEPS):
     device = next(model.parameters()).device
 
-    b = 1
+    batch_size = 1
 
     img = diffused
     imgs = []
 
     for i in reversed(range(0, timesteps)):
         img = p_sample(model, img, variance, torch.full(
-            (b,), i, device=device, dtype=torch.long), i)
+            (batch_size,), i, device=device, dtype=torch.long), i)
         imgs.append(img.cpu())
     return imgs[-1]
 
 
 @torch.no_grad()
 def get_sample(model, image, variance, timesteps):
-    return p_sample_loop(model, image, variance, timesteps)
+    sample = p_sample_loop(model, image, variance, timesteps)
+    return normalize_tensor(sample)
 
 
-def sample(testing_loader, model, variance, timesteps=10, device=DEVICE):
+def sample(testing_loader, model, variance, timesteps=TIMESTEPS, device=DEVICE):
     with torch.inference_mode():
         for i, data in enumerate(tqdm(testing_loader, 0)):
             diffused, _, lensed = data
             sample = get_sample(model, diffused.to(
                 device), variance, timesteps)
-            sample = normalize_tensor(sample)
-            # t = torch.full((1,), timesteps, device=device, dtype=torch.long)
-            # sample = model(diffused.to(device), t.to(device))
 
-            image = torch.permute(torch.squeeze(
-                sample), (1, 2, 0))
-            label = torch.permute(torch.squeeze(lensed), (1, 2, 0))
+            image = transform_sample(sample)
+            label = transform_sample(lensed)
 
             odak.learn.tools.save_image(
-                f"results_10/{i}output.jpeg", image, cmin=0, cmax=1)
+                f"results_x0/{i}output.jpeg", image, cmin=0, cmax=1)
 
             odak.learn.tools.save_image(
-                f"results_10/{i}groundtruth.jpeg", label, cmin=0, cmax=1)
+                f"results_x0/{i}groundtruth.jpeg", label, cmin=0, cmax=1)
+
+
+def sample_image(model, diffused_image, timesteps=TIMESTEPS):
+    diffused_image = diffused_image.to(model.device)
+    variance = Variance(timesteps)
+    sample = get_sample(model, diffused_image, variance, timesteps)
+    return sample
 
 
 if __name__ == "__main__":
     network = UNet(in_channels=3, out_channels=3)
-    checkpoint = torch.load("diffusion_model_50_real.pth")
+    checkpoint = torch.load("diffusion_modelx0_90_64_1024.pth")
     network.load_state_dict(checkpoint["model_state_dict"])
     variance = Variance(TIMESTEPS)
     network.eval()
