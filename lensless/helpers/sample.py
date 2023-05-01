@@ -1,12 +1,8 @@
 from tqdm import tqdm
-from lensless.helpers.diffusercam import DiffuserCam
-from lensless.models.diffusion_model import UNet
 from lensless.helpers.utils import extract, Variance, normalize_tensor, transform_sample
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchvision.transforms.functional import rotate
+from torchvision.transforms.functional import invert
 import odak
 
 DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
@@ -56,37 +52,23 @@ def get_sample(model, image, variance, timesteps):
     return normalize_tensor(sample)
 
 
-def sample(testing_loader, model, variance, timesteps=TIMESTEPS, device=DEVICE):
+def sample_diffusion_model(model, collection, image_results_path, use_x0, device=DEVICE):
+    testing_loader = DataLoader(collection.test_dataset)
+    variance = Variance(TIMESTEPS)
     with torch.inference_mode():
         for i, data in enumerate(tqdm(testing_loader, 0)):
             diffused, _, lensed = data
             sample = get_sample(model, diffused.to(
-                device), variance, timesteps)
+                device), variance, TIMESTEPS)
+
+            if use_x0:  # using x0 results in image with inverted colours, so reverted
+                sample = invert(sample)
 
             image = transform_sample(sample)
             label = transform_sample(lensed)
 
             odak.learn.tools.save_image(
-                f"results_x0/{i}output.jpeg", image, cmin=0, cmax=1)
+                f"{image_results_path}{i}output.png", image, cmin=0, cmax=1)
 
             odak.learn.tools.save_image(
-                f"results_x0/{i}groundtruth.jpeg", label, cmin=0, cmax=1)
-
-
-def sample_image(model, diffused_image, timesteps=TIMESTEPS):
-    diffused_image = diffused_image.to(model.device)
-    variance = Variance(timesteps)
-    sample = get_sample(model, diffused_image, variance, timesteps)
-    return sample
-
-
-if __name__ == "__main__":
-    network = UNet(in_channels=3, out_channels=3)
-    checkpoint = torch.load("diffusion_modelx0_90_64_1024.pth")
-    network.load_state_dict(checkpoint["model_state_dict"])
-    variance = Variance(TIMESTEPS)
-    network.eval()
-    network.to(DEVICE)
-    testing_loader = DataLoader(DiffuserCam(
-        DIFFUSERCAM_DIR, training=False, testing=True).test_dataset)
-    sample(testing_loader, network, variance, timesteps=TIMESTEPS)
+                f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1)

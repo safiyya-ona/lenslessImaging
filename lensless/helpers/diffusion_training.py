@@ -78,29 +78,3 @@ def train_diffusion_model(model, collection, results_path, use_x0=False, timeste
                          scheduler, loss_fn, variance, use_x0)
     torch.save(model.state_dict(), results_path)
 
-
-def train(timesteps, dataset_dir):
-    model = UNet(3, 3).to(DEVICE)
-    loss_fn = nn.MSELoss()
-    diffuser_collection: "DiffuserCam" = DiffuserCam(dataset_dir)
-    training_loader: DataLoader = DataLoader(
-        diffuser_collection.train_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, num_workers=NUM_WORKERS)
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=MAX_LEARNING_RATE,
-                                              steps_per_epoch=len(training_loader), epochs=NUM_EPOCHS)
-    loss_history = []
-    variance = Variance(timesteps)
-
-    for epoch in range(1, NUM_EPOCHS + 1):
-        loss = run_epoch(training_loader, model, optimizer,
-                         scheduler, loss_fn, variance, use_x0=True)
-        loss_history.append(loss.item())
-        if epoch % 10 == 0:
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'scheduler_state_dict': scheduler.state_dict(),
-                'loss': loss_history,
-                'variance': variance
-            }, f"diffusion_modelx0_{epoch}_64_1024.pth")

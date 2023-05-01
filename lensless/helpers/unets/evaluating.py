@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 import odak
 from lensless.models.unets.simple_unet import UNet as SimpleUNet
-from lensless.models.unets.attention_unet import AttentionUNet
+from lensless.helpers.utils import transform_sample
 from lensless.helpers.diffusercam import DiffuserCam
 from tqdm import tqdm
 
@@ -26,6 +26,25 @@ def validate(testing_loader, model, device=DEVICE):
 
         odak.learn.tools.save_image(
             f"results_results/{i}groundtruth.jpeg", label, cmin=0, cmax=1)
+
+
+def sample_unet(model, collection, image_results_path, device=DEVICE):
+    testing_loader = DataLoader(collection.test_dataset)
+    for i, data in enumerate(tqdm(testing_loader, 0)):
+        diffused, propagated, lensed = data
+        diffused = diffused.to(device)
+        propagated = propagated.to(device)
+        lensed = lensed.to(device)
+        output = model(diffused)
+
+        image = transform_sample(output)
+        label = transform_sample(lensed)
+
+        odak.learn.tools.save_image(
+            f"{image_results_path}{i}output.jpeg", image, cmin=0, cmax=1)
+
+        odak.learn.tools.save_image(
+            f"{image_results_path}{i}groundtruth.jpeg", label, cmin=0, cmax=1)
 
 
 if __name__ == "__main__":
