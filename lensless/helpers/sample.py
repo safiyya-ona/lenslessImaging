@@ -5,7 +5,6 @@ from torch.utils.data import DataLoader
 from torchvision.transforms.functional import invert
 import odak
 
-DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TIMESTEPS = 10
 

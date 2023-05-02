@@ -17,7 +17,6 @@ IMAGE_SIZE = 270
 IMAGE_WIDTH = 480
 PIN_MEMORY = True
 LOAD_MODEL = False
-DIFFUSERCAM_DIR = "/cs/student/projects1/2020/sonanuga/dataset"
 
 
 def run_epoch(data_loader, model, optimizer, loss_fn):

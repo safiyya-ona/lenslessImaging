@@ -134,7 +134,3 @@ class DiffuserCam:
                 print(
                     f"Image {label} not found in dataset. No file named {diffuser_image} or {ground_truth_image}")
         return diffuser_images, propagated_diffused_images, ground_truth_images
-
-
-if __name__ == "__main__":
-    diff = DiffuserCam("/cs/student/projects1/2020/sonanuga/dataset")
