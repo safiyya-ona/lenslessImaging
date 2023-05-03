@@ -16,12 +16,12 @@ By default, all models are selected if the flag is ommitted. You can select one 
 
 ### Sampling Images
 
-    python main.py --dataset "path_to_dataset" --models --sample
+    python main.py --dataset "path_to_dataset" --sample
 
 ### Training Images
 
-    python main.py --dataset "path_to_dataset" --models --train
+    python main.py --dataset "path_to_dataset" --train
 
 ### Getting average image results
 
-    python main.py --dataset "path_to_dataset" --models --results
+    python main.py --dataset "path_to_dataset" --results
