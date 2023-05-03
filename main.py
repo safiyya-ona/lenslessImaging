@@ -102,8 +102,7 @@ def get_results(model):
     Returns a dictionary of results from the model in the results path
     """
     results = {'lpips': [], 'mse': [], 'psnr': [], 'ms-ssim': []}
-    testing_images = os.listdir(model['sample_path'])
-    print(len(testing_images))
+    testing_images = sorted(os.listdir(model['sample_path']))
     mse_loss = torch.nn.MSELoss()
     lpips_loss = LPIPS()
 
