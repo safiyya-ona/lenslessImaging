@@ -20,7 +20,7 @@ Or manually install using the commands below
 
 ## Commands for training and evaluation
 
-Saved models can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=RMtmNo)
+Saved models can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=flLKQ3)
 
 By default, all models are selected if the flag is ommitted. You can select one model by adding the flag --models and its name, e.g.
 
