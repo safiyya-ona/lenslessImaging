@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from lensless.models.diffusion_model import UNet
+from lensless.models.diffusion_model.diffusion_model import UNet
 from lensless.helpers.diffusercam import DiffuserCam
 from lensless.helpers.utils import extract, Variance
 

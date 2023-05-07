@@ -9,18 +9,18 @@ import odak
 from tqdm import tqdm
 from lensless.helpers.diffusercam import DiffuserCam, region_of_interest
 from lensless.helpers.unets.dtraining import train_unet
-from lensless.helpers.diffusion_training import (
+from lensless.helpers.diffusion_model.diffusion_training import (
     train_diffusion_model,
     train_diffusion_model_no_scheduler,
 )
 
 from lensless.helpers.unets.evaluating import sample_unet
-from lensless.helpers.sample import sample_diffusion_model
+from lensless.helpers.diffusion_model.sample import sample_diffusion_model
 
 from lensless.models.unets.simple_unet import UNet
 from lensless.models.unets.attention_unet import AttentionUNet
-from lensless.models.residual_diffusion_model import ResiudalUNet
-from lensless.models.diffusion_model import UNet as DiffusionModelUNet
+from lensless.models.diffusion_model.residual_diffusion_model import ResiudalUNet
+from lensless.models.diffusion_model.diffusion_model import UNet as DiffusionModelUNet
 
 SAVED_MODELS_PATH = "saved_models/"
 IMAGE_RESULTS_PATH = "image_results/"
