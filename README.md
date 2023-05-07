@@ -28,12 +28,12 @@ By default, all models are selected if the flag is ommitted. You can select one 
 
 ### Sampling Images
 
-    python main.py --dataset "path_to_dataset" --sample
+    python main.py --dataset "path_to_dataset" --sample --models "diffusion_model_x0"
 
 ### Training Images
 
-    python main.py --dataset "path_to_dataset" --train
+    python main.py --dataset "path_to_dataset" --train --models "diffusion_model_x0"
 
 ### Getting average image results
 
-    python main.py --dataset "path_to_dataset" --results
+    python main.py --dataset "path_to_dataset" --results --models "diffusion_model_x0"
