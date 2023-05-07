@@ -6,6 +6,12 @@ The dataset can be found through this link: [DiffuserCam Dataset](https://waller
 
 For all commands, the path to the dataset will be "path_to_dataset"
 
+## Setup
+
+    conda create -n lensless-diffusion pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia
+    conda activate lensless-diffusion
+    pip install tqdm einops piq odak
+
 ## Commands
 
 Saved models can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=RMtmNo)
