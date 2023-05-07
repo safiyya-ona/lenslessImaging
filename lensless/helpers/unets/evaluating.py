@@ -1,9 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 import odak
-from lensless.models.unets.simple_unet import UNet as SimpleUNet
 from lensless.helpers.utils import transform_sample
-from lensless.helpers.diffusercam import DiffuserCam
 from tqdm import tqdm
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,7 +20,9 @@ def sample_unet(model, collection, image_results_path, device=DEVICE):
         label = transform_sample(lensed)
 
         odak.learn.tools.save_image(
-            f"{image_results_path}{i}output.png", image, cmin=0, cmax=1)
+            f"{image_results_path}{i}output.png", image, cmin=0, cmax=1
+        )
 
         odak.learn.tools.save_image(
-            f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1)
+            f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1
+        )

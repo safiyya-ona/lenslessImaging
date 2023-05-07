@@ -11,8 +11,7 @@ def _cosine_beta_schedule(timesteps, s=0.008):
     """
     steps = timesteps + 1
     x = torch.linspace(0, timesteps, steps)
-    alphas_cumprod = torch.cos(
-        ((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
+    alphas_cumprod = torch.cos(((x / timesteps) + s) / (1 + s) * torch.pi * 0.5) ** 2
     alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
     betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
     return torch.clip(betas, 0.0001, 0.9999)
@@ -32,34 +31,33 @@ def normalize_tensor(x: torch.Tensor):
 
 
 def transform_sample(sample: torch.Tensor):
-    transformed_sample = torch.permute(torch.squeeze(
-        rotate(sample, 180)), (1, 2, 0))
+    """
+    The DiffuserCam dataset stores images as BGR and upside down. This function returns the image in RGB and right side up.
+    """
+    transformed_sample = torch.permute(torch.squeeze(rotate(sample, 180)), (1, 2, 0))
 
     return torch.flip(transformed_sample, [1, 2])
 
 
 class Variance:
     """
-    Stores necessary constants needed for forward process and sampling images
+    Stores necessary constants needed for forward process and sampling images from a diffusion model
     """
 
     def __init__(self, timesteps) -> None:
         self.betas = _cosine_beta_schedule(timesteps=timesteps)
 
-        self.alphas = 1. - self.betas
+        self.alphas = 1.0 - self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
-        self.alphas_cumprod_prev = F.pad(
-            self.alphas_cumprod[:-1], (1, 0), value=1.0)
+        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
         self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
 
-        # calculations for diffusion q(x_t | x_{t-1})
         self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(
-            1. - self.alphas_cumprod)
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - self.alphas_cumprod)
 
-        # calculations for posterior q(x_{t-1} | x_t, x_0)
-        self.posterior_variance = self.betas * \
-            (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
+        self.posterior_variance = (
+            self.betas * (1.0 - self.alphas_cumprod_prev) / (1.0 - self.alphas_cumprod)
+        )
 
     def get_alphas_cumprod(self):
         return self.alphas_cumprod

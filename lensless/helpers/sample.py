@@ -24,8 +24,7 @@ def p_sample(model, x, variance: Variance, t, t_index):
     if t_index == 0:
         return model_mean
     else:
-        posterior_variance_t = extract(
-            variance.get_posterior_variance(), t, x.shape)
+        posterior_variance_t = extract(variance.get_posterior_variance(), t, x.shape)
         return model_mean + torch.sqrt(posterior_variance_t) * x
 
 
@@ -39,8 +38,13 @@ def p_sample_loop(model, diffused: torch.Tensor, variance, timesteps=TIMESTEPS):
     imgs = []
 
     for i in reversed(range(0, timesteps)):
-        img = p_sample(model, img, variance, torch.full(
-            (batch_size,), i, device=device, dtype=torch.long), i)
+        img = p_sample(
+            model,
+            img,
+            variance,
+            torch.full((batch_size,), i, device=device, dtype=torch.long),
+            i,
+        )
         imgs.append(img.cpu())
     return imgs[-1]
 
@@ -51,14 +55,15 @@ def get_sample(model, image, variance, timesteps):
     return normalize_tensor(sample)
 
 
-def sample_diffusion_model(model, collection, image_results_path, use_x0, device=DEVICE):
+def sample_diffusion_model(
+    model, collection, image_results_path, use_x0, device=DEVICE
+):
     testing_loader = DataLoader(collection.test_dataset)
     variance = Variance(TIMESTEPS)
     with torch.inference_mode():
         for i, data in enumerate(tqdm(testing_loader, 0)):
             diffused, _, lensed = data
-            sample = get_sample(model, diffused.to(
-                device), variance, TIMESTEPS)
+            sample = get_sample(model, diffused.to(device), variance, TIMESTEPS)
 
             if use_x0:  # using x0 results in image with inverted colours, so reverted
                 sample = invert(sample)
@@ -67,7 +72,9 @@ def sample_diffusion_model(model, collection, image_results_path, use_x0, device
             label = transform_sample(lensed)
 
             odak.learn.tools.save_image(
-                f"{image_results_path}{i}output.png", image, cmin=0, cmax=1)
+                f"{image_results_path}{i}output.png", image, cmin=0, cmax=1
+            )
 
             odak.learn.tools.save_image(
-                f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1)
+                f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1
+            )

@@ -17,7 +17,7 @@ class AttentionGateBlock(nn.Module):
             if self.inter_channels == 0:
                 self.inter_channels = 1
 
-        # W which is applied to both g (gating signal) and x_l (input features) for the additicve attention gate
+        # W which is applied to both g (gating signal) and x_l (input features) for the additive attention gate
         self.W = nn.Sequential(nn.Conv2d(in_channels=self.in_channels, out_channels=self.in_channels,
                                kernel_size=1, stride=1, padding=0), nn.BatchNorm2d(self.in_channels))
 

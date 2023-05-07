@@ -14,14 +14,18 @@ def timestep_embedding(timesteps, dim):
     Create a timestep embedding from the timestep.
     """
 
-    half = dim // 2
-    frequencies = torch.exp(-math.log(10000) * torch.arange(start=0,
-                            end=half, dtype=torch.float32, device=timesteps.device) / half)
+    half_dim = dim // 2
+    frequencies = torch.exp(
+        -math.log(10000)
+        * torch.arange(
+            start=0, end=half_dim, dtype=torch.float32, device=timesteps.device
+        )
+        / half_dim
+    )
     args = timesteps[:, None].float() * frequencies[None]
     embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
     if dim % 2:
-        embedding = torch.cat(
-            [embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
     return embedding.to(torch.float32)
 
 
@@ -85,39 +89,44 @@ class DownBlock(TimestepBlock):
         super().__init__()
         self.conv = DoubleConvBn(in_channels, out_channels)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.emb_layer = nn.Sequential(
-            nn.SiLU(), nn.Linear(timestep_dim, out_channels))
+        self.emb_layer = nn.Sequential(nn.SiLU(), nn.Linear(timestep_dim, out_channels))
 
     def forward(self, x, emb):
         x = self.conv(x)
         x_pool = self.pool(x)
         emb = self.emb_layer(emb)[:, :, None, None].repeat(
-            1, 1, x_pool.shape[-2], x_pool.shape[-1])
+            1, 1, x_pool.shape[-2], x_pool.shape[-1]
+        )
         return x, x_pool + emb
 
 
 class UpBlock(TimestepBlock):
     def __init__(self, in_channels, out_channels, timestep_dim):
         super().__init__()
-        self.conv = nn.Sequential(SingleConvBn(
-            in_channels*2, in_channels), DoubleConvBn(in_channels, out_channels))
-        self.emb_layer = nn.Sequential(
-            nn.SiLU(), nn.Linear(timestep_dim, out_channels))
+        self.conv = nn.Sequential(
+            SingleConvBn(in_channels * 2, in_channels),
+            DoubleConvBn(in_channels, out_channels),
+        )
+        self.emb_layer = nn.Sequential(nn.SiLU(), nn.Linear(timestep_dim, out_channels))
 
     def forward(self, x, skip, emb):
         x = F.interpolate(x, scale_factor=2)
         if x.shape != skip.shape:
             x = F.interpolate(
-                x, size=skip.shape[2:], mode='bilinear', align_corners=True)
+                x, size=skip.shape[2:], mode="bilinear", align_corners=True
+            )
         x = torch.cat([skip, x], dim=1)
         x = self.conv(x)
         emb = self.emb_layer(emb)[:, :, None, None].repeat(
-            1, 1, x.shape[-2], x.shape[-1])
+            1, 1, x.shape[-2], x.shape[-1]
+        )
         return x + emb
 
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, timestep_dim=TIMESTEP_DIM, num_classes=None):
+    def __init__(
+        self, in_channels=3, out_channels=3, timestep_dim=TIMESTEP_DIM, num_classes=None
+    ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -159,6 +168,5 @@ class UNet(nn.Module):
         return x
 
     def forward(self, x, t, y=None):
-        emb = timestep_embedding(
-            t, self.timestep_dim)
+        emb = timestep_embedding(t, self.timestep_dim)
         return self.unet_forward(x, emb)
