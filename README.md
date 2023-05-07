@@ -8,7 +8,7 @@ For all commands, the path to the dataset will be "path_to_dataset"
 
 ## Commands
 
-Saved models can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/EoZFg4unWXRJhE6FOkNkcHkBZGEFFDFwWWAh7rftQquhDw?e=HmhiiN)
+Saved models can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=RMtmNo)
 
 By default, all models are selected if the flag is ommitted. You can select one model by adding the flag --models and its name, e.g.
 
