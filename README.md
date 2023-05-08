@@ -1,6 +1,6 @@
-# Diffusion Models for Diffuser Cameras
+# Learned Diffusion Processes for Lensless Cameras
 
-For my final year project for UCL Computer Science, I investigated the use of Diffusion Models for image reconstruction of lensless cameras, using the DiffuserCam data set.
+For my final year project for UCL Computer Science, I investigated the use of processes from diffusion models for image reconstruction of lensless cameras, using the DiffuserCam data set.
 
 The dataset can be found through this link: [DiffuserCam Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
 
