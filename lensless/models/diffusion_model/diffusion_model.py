@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# code inspired from
+# https://github.com/tcapelle/Diffusion-Models-pytorch/blob/e9bab9a1ae1f1745493031f4163427fe884e12fb/modules.py#L208
+# https://github.com/Stability-AI/stablediffusion/blob/cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf/ldm/modules/diffusionmodules/openaimodel.py#L61
 
 TIMESTEP_DIM = 270 * 4
 
@@ -31,7 +34,7 @@ def timestep_embedding(timesteps, dim):
 
 class TimestepBlock(nn.Module):
     """
-    Any module where a timestep embedding is taken as a second argument
+    Any module where a timestep embedding is taken as a second argument on the forward pass
     """
 
     @abstractmethod
