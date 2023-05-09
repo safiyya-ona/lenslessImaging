@@ -128,9 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
-misc/
-results*
+image_results/
 *.pth
-image_results
-pths/
