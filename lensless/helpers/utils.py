@@ -7,7 +7,7 @@ from torchvision.transforms.functional import rotate
 
 def _cosine_beta_schedule(timesteps, s=0.008):
     """
-    Implements cosine schedule from https://arxiv.org/abs/2102.09672
+    Implements cosine schedule suggested by Nichol et al. https://arxiv.org/abs/2102.09672
     """
     steps = timesteps + 1
     x = torch.linspace(0, timesteps, steps)
