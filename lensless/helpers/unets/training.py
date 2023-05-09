@@ -1,10 +1,7 @@
 from tqdm import tqdm
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
-from lensless.models.unets.simple_unet import UNet
-from lensless.helpers.diffusercam import DiffuserCam
+
+# this file is included for training on the simulated dataset
 
 # Hyperparameters
 LEARNING_RATE = 0.001
