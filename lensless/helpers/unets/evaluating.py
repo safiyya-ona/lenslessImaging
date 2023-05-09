@@ -12,7 +12,7 @@ def sample_unet(model, collection, image_results_path, device=DEVICE):
     for i, data in enumerate(tqdm(testing_loader, 0)):
         diffused, propagated, lensed = data
         diffused = diffused.to(device)
-        propagated = propagated.to(device)
+        # propagated = propagated.to(device) # uncomment for use with simulated dataset
         lensed = lensed.to(device)
         output = model(diffused)
 

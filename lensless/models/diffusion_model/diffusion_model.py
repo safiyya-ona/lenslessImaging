@@ -6,8 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # code inspired from
-# https://github.com/tcapelle/Diffusion-Models-pytorch/blob/e9bab9a1ae1f1745493031f4163427fe884e12fb/modules.py#L208
-# https://github.com/Stability-AI/stablediffusion/blob/cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf/ldm/modules/diffusionmodules/openaimodel.py#L61
+# https://github.com/tcapelle/Diffusion-Models-pytorch/blob/e9bab9a1ae1f1745493031f4163427fe884e12fb/modules.py
+# https://github.com/Stability-AI/stablediffusion/blob/cf1d67a6fd5ea1aa600c4df58e5b47da45f6bdbf/ldm/modules/diffusionmodules/openaimodel.py
 
 TIMESTEP_DIM = 270 * 4
 
@@ -127,9 +127,11 @@ class UpBlock(TimestepBlock):
 
 
 class UNet(nn.Module):
-    def __init__(
-        self, in_channels=3, out_channels=3, timestep_dim=TIMESTEP_DIM, num_classes=None
-    ):
+    """
+    U-Net implemented as proposed by Ronneberger et al. (https://arxiv.org/abs/1505.04597)
+    """
+
+    def __init__(self, in_channels=3, out_channels=3, timestep_dim=TIMESTEP_DIM):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -138,8 +140,6 @@ class UNet(nn.Module):
             nn.SiLU(),
             nn.Linear(timestep_dim, timestep_dim),
         )
-        if num_classes is not None:
-            self.label_embed = nn.Embedding(num_classes, timestep_dim)
 
         self.down1 = DownBlock(in_channels, 64, self.timestep_dim)
         self.down2 = DownBlock(64, 128, self.timestep_dim)
@@ -170,6 +170,6 @@ class UNet(nn.Module):
         x = self.outc(x)
         return x
 
-    def forward(self, x, t, y=None):
+    def forward(self, x, t):
         emb = timestep_embedding(t, self.timestep_dim)
         return self.unet_forward(x, emb)

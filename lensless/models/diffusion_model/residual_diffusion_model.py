@@ -9,6 +9,10 @@ from einops import rearrange
 
 # code adapted from https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/annotated_diffusion.ipynb
 
+UNET_STARTING_DIM = 50
+RESNET_BLOCK_GROUPS = 5
+RGB_CHANNELS = 3
+
 
 def exists(x):
     return x is not None
@@ -29,6 +33,10 @@ def Downsample(dim):
 
 
 class PreNorm(nn.Module):
+    """
+    Layer that applies group normalisation before an attention block
+    """
+
     def __init__(self, dim, fn):
         super().__init__()
         self.fn = fn
@@ -65,10 +73,10 @@ class SinusoidalPositionEmbeddings(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, dim, dim_out, groups=5):
+    def __init__(self, dim, out_channels, groups=5):
         super().__init__()
-        self.proj = nn.Conv2d(dim, dim_out, 3, padding=1)
-        self.norm = nn.GroupNorm(groups, dim_out)
+        self.proj = nn.Conv2d(dim, out_channels, 3, padding=1)
+        self.norm = nn.GroupNorm(groups, out_channels)
         self.act = nn.SiLU()
 
     def forward(self, x):
@@ -81,17 +89,19 @@ class Block(nn.Module):
 class ResnetBlock(nn.Module):
     """Usage of residual learning as proposed by He et al. https://arxiv.org/abs/1512.03385"""
 
-    def __init__(self, dim, dim_out, *, time_emb_dim=None, groups=5):
+    def __init__(self, dim, out_channels, *, time_emb_dim=None, groups=5):
         super().__init__()
         self.mlp = (
-            nn.Sequential(nn.SiLU(), nn.Linear(time_emb_dim, dim_out))
+            nn.Sequential(nn.SiLU(), nn.Linear(time_emb_dim, out_channels))
             if exists(time_emb_dim)
             else None
         )
 
-        self.block1 = Block(dim, dim_out, groups=groups)
-        self.block2 = Block(dim_out, dim_out, groups=groups)
-        self.res_conv = nn.Conv2d(dim, dim_out, 1) if dim != dim_out else nn.Identity()
+        self.block1 = Block(dim, out_channels, groups=groups)
+        self.block2 = Block(out_channels, out_channels, groups=groups)
+        self.res_conv = (
+            nn.Conv2d(dim, out_channels, 1) if dim != out_channels else nn.Identity()
+        )
 
     def forward(self, x, time_emb=None):
         h = self.block1(x)
@@ -105,11 +115,15 @@ class ResnetBlock(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, heads=4, dim_head=32):
+    """
+    Layer that performs attention as proposed by Vaswani et al. https://arxiv.org/abs/1706.03762
+    """
+
+    def __init__(self, dim, heads=4, head_dims=32):
         super().__init__()
-        self.scale = dim_head**-0.5
+        self.scale = head_dims**-0.5
         self.heads = heads
-        hidden_dim = dim_head * heads
+        hidden_dim = head_dims * heads
         self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias=False)
         self.to_out = nn.Conv2d(hidden_dim, dim, 1)
 
@@ -131,11 +145,15 @@ class Attention(nn.Module):
 
 
 class LinearAttention(nn.Module):
-    def __init__(self, dim, heads=2, dim_head=16):
+    """
+    Linear attention layer as implemented by Shen et al. https://github.com/lucidrains/linear-attention-transformer
+    """
+
+    def __init__(self, dim, num_heads=2, head_dims=16):
         super().__init__()
-        self.scale = dim_head**-0.5
-        self.heads = heads
-        hidden_dim = dim_head * heads
+        self.scale = head_dims**-0.5
+        self.heads = num_heads
+        hidden_dim = head_dims * num_heads
         self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias=False)
 
         self.to_out = nn.Sequential(nn.Conv2d(hidden_dim, dim, 1), nn.GroupNorm(1, dim))
@@ -159,15 +177,17 @@ class LinearAttention(nn.Module):
 
 
 class ResiudalUNet(nn.Module):
+    """
+    U-Net with residual learning as proposed by He et al. https://arxiv.org/abs/1512.03385 and Ronneberger et al. https://arxiv.org/abs/1505.04597
+    """
+
     def __init__(
         self,
-        dim=50,
+        dim=UNET_STARTING_DIM,
         init_dim=None,
-        out_dim=None,
         dim_mults=(1, 2, 4, 8),
-        channels=3,
-        use_time_emb=True,
-        groups=5,
+        channels=RGB_CHANNELS,
+        groups=RESNET_BLOCK_GROUPS,
     ):
         super().__init__()
 
@@ -178,77 +198,86 @@ class ResiudalUNet(nn.Module):
         self.init_conv = nn.Conv2d(channels, init_dim, 7, padding=3)
 
         dims = [init_dim, *map(lambda m: dim * m, dim_mults)]
-        in_out = list(zip(dims[:-1], dims[1:]))
+        in_out_channels = list(zip(dims[:-1], dims[1:]))
 
         resnetblock_partial = partial(ResnetBlock, groups=groups)
 
-        # time embeddings
-        if use_time_emb:
-            time_dim = dim * 4
-            self.time_mlp = nn.Sequential(
-                SinusoidalPositionEmbeddings(dim),
-                nn.Linear(dim, time_dim),
-                nn.GELU(),
-                nn.Linear(time_dim, time_dim),
-            )
-        else:
-            time_dim = None
-            self.time_mlp = None
+        # timestep embeddings
+        timestep_dim = dim * 4
+        self.time_mlp = nn.Sequential(
+            SinusoidalPositionEmbeddings(dim),
+            nn.Linear(dim, timestep_dim),
+            nn.GELU(),
+            nn.Linear(timestep_dim, timestep_dim),
+        )
 
         self.downs = nn.ModuleList([])
         self.ups = nn.ModuleList([])
-        num_resolutions = len(in_out)
+        num_resolutions = len(in_out_channels)
 
-        for ind, (dim_in, dim_out) in enumerate(in_out):
-            is_last = ind >= (num_resolutions - 1)
+        for i, (in_channels, out_channels) in enumerate(in_out_channels):
+            is_last = i >= (num_resolutions - 1)
 
             self.downs.append(
                 nn.ModuleList(
                     [
-                        resnetblock_partial(dim_in, dim_out, time_emb_dim=time_dim),
-                        resnetblock_partial(dim_out, dim_out, time_emb_dim=time_dim),
-                        Residual(PreNorm(dim_out, LinearAttention(dim_out))),
-                        Downsample(dim_out) if not is_last else nn.Identity(),
+                        resnetblock_partial(
+                            in_channels, out_channels, time_emb_dim=timestep_dim
+                        ),
+                        resnetblock_partial(
+                            out_channels, out_channels, time_emb_dim=timestep_dim
+                        ),
+                        Residual(PreNorm(out_channels, LinearAttention(out_channels))),
+                        Downsample(out_channels) if not is_last else nn.Identity(),
                     ]
                 )
             )
 
         mid_dim = dims[-1]
-        self.mid_block1 = resnetblock_partial(mid_dim, mid_dim, time_emb_dim=time_dim)
+        self.mid_block1 = resnetblock_partial(
+            mid_dim, mid_dim, time_emb_dim=timestep_dim
+        )
         self.mid_attn = Residual(PreNorm(mid_dim, Attention(mid_dim)))
-        self.mid_block2 = resnetblock_partial(mid_dim, mid_dim, time_emb_dim=time_dim)
+        self.mid_block2 = resnetblock_partial(
+            mid_dim, mid_dim, time_emb_dim=timestep_dim
+        )
 
-        for ind, (dim_in, dim_out) in enumerate(reversed(in_out[1:])):
+        for ind, (in_channels, out_channels) in enumerate(
+            reversed(in_out_channels[1:])
+        ):
             is_last = ind >= (num_resolutions - 1)
 
             self.ups.append(
                 nn.ModuleList(
                     [
-                        resnetblock_partial(dim_out * 2, dim_in, time_emb_dim=time_dim),
-                        resnetblock_partial(dim_in, dim_in, time_emb_dim=time_dim),
-                        Residual(PreNorm(dim_in, LinearAttention(dim_in))),
-                        Upsample(dim_in) if not is_last else nn.Identity(),
+                        resnetblock_partial(
+                            out_channels * 2, in_channels, time_emb_dim=timestep_dim
+                        ),
+                        resnetblock_partial(
+                            in_channels, in_channels, time_emb_dim=timestep_dim
+                        ),
+                        Residual(PreNorm(in_channels, LinearAttention(in_channels))),
+                        Upsample(in_channels) if not is_last else nn.Identity(),
                     ]
                 )
             )
 
-        out_dim = default(out_dim, channels)
         self.final_conv = nn.Sequential(
-            resnetblock_partial(dim, dim), nn.Conv2d(dim, out_dim, 1)
+            resnetblock_partial(dim, dim), nn.Conv2d(dim, self.channels, 1)
         )
 
     def forward(self, x, time):
         x = self.init_conv(x)
 
-        t = self.time_mlp(time) if exists(self.time_mlp) else None
+        t = self.time_mlp(time)
 
         skip_connections = []
 
         # downsampling blocks
-        for block1, block2, attn, downsample in self.downs:
-            x = block1(x, t)
-            x = block2(x, t)
-            x = attn(x)
+        for resblock1, resblock2, lin_att, downsample in self.downs:
+            x = resblock1(x, t)
+            x = resblock2(x, t)
+            x = lin_att(x)
             skip_connections.append(x)
             x = downsample(x)
 
@@ -258,16 +287,17 @@ class ResiudalUNet(nn.Module):
         x = self.mid_block2(x, t)
 
         # upsampling blocks
-        for block1, block2, attn, upsample in self.ups:
+        for resblock1, resblock2, lin_att, upsample in self.ups:
             skip = skip_connections.pop()
             if x.shape != skip.shape:
                 x = F.interpolate(
                     x, size=skip.shape[2:], mode="bilinear", align_corners=True
                 )
             x = torch.cat((x, skip), dim=1)
-            x = block1(x, t)
-            x = block2(x, t)
-            x = attn(x)
+            x = resblock1(x, t)
+            x = resblock2(x, t)
+            x = lin_att(x)
             x = upsample(x)
 
-        return self.final_conv(x)
+        x = self.final_conv(x)
+        return x
