@@ -24,16 +24,16 @@ Saved models can be found through this link: [Pretrained Models](https://liveucl
 
 By default, all models are selected if the flag is ommitted. You can select one model by adding the flag --models and its name, e.g.
 
-    --models "diffusion_model_x0"
+    --models "residual_diffusion_model_x0"
 
 ### Sampling Images
 
-    python main.py --dataset "path_to_dataset" --sample --models "diffusion_model_x0"
+    python main.py --dataset "path_to_dataset" --sample --models "residual_diffusion_model_x0"
 
 ### Training Images
 
-    python main.py --dataset "path_to_dataset" --train --models "diffusion_model_x0"
+    python main.py --dataset "path_to_dataset" --train --models "residual_diffusion_model_x0"
 
 ### Getting average image results
 
-    python main.py --dataset "path_to_dataset" --results --models "diffusion_model_x0"
+    python main.py --dataset "path_to_dataset" --results --models "residual_diffusion_model_x0"
