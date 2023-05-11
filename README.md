@@ -8,7 +8,7 @@ For all commands, the path to the dataset will be "path_to_dataset"
 
 ## Setup
 
-Using the environment.yml file, you can run
+Using the `environment.yml` file, you can run
 
     conda env create -f environment.yml
 
