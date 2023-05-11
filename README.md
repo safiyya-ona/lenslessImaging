@@ -4,7 +4,7 @@ For my final year project for UCL Computer Science, I investigated the use of pr
 
 The dataset can be found through this link: [DiffuserCam Dataset](https://waller-lab.github.io/LenslessLearning/dataset.html)
 
-For all commands, the path to the dataset will be "path_to_dataset"
+For all commands, the path to the dataset will be `"path_to_dataset"`
 
 ## Setup
 
@@ -22,7 +22,7 @@ Or manually install the necessary using the commands below
 
 Models for the `saved_models` directory can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=flLKQ3)
 
-By default, all models are selected if the flag is ommitted. You can select one model by adding the flag --models and its name, e.g.
+By default, all models are selected if the flag is ommitted. You can select one model by adding the flag `--models` and its name, e.g.
 
     --models "residual_diffusion_model_x0"
 
