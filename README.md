@@ -12,7 +12,7 @@ Using the environment.yml file, you can run
 
     conda env create -f environment.yml
 
-Or manually install using the commands below
+Or manually install the necessary using the commands below
 
     conda create -n lensless-diffusion pytorch torchvision pytorch-cuda=11.7 -c pytorch -c nvidia
     conda activate lensless-diffusion
@@ -20,20 +20,26 @@ Or manually install using the commands below
 
 ## Commands for training and evaluation
 
-Saved models can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=flLKQ3)
+Models for the `saved_models` directory can be found through this link: [Pretrained Models](https://liveuclac-my.sharepoint.com/:f:/g/personal/zcabson_ucl_ac_uk/Ej6XsdayLeRBsxO2p0V5eOUBsX9xyfb5c_mxJx5JvMoLPQ?e=flLKQ3)
 
 By default, all models are selected if the flag is ommitted. You can select one model by adding the flag --models and its name, e.g.
 
     --models "residual_diffusion_model_x0"
 
-### Sampling Images
+### Sampling Training Images
 
     python main.py --dataset "path_to_dataset" --sample --models "residual_diffusion_model_x0"
+
+### Sampling In The Wild Images
+
+    python main.py --dataset "path_to_dataset" --itw --models "residual_diffusion_model_x0"
 
 ### Training Images
 
     python main.py --dataset "path_to_dataset" --train --models "residual_diffusion_model_x0"
 
 ### Getting average image results
+
+Note: This will only return results if reconstructed images exist in the relevant directory
 
     python main.py --dataset "path_to_dataset" --results --models "residual_diffusion_model_x0"
