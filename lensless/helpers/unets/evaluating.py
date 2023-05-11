@@ -26,3 +26,16 @@ def sample_unet(model, collection, image_results_path, device=DEVICE):
         odak.learn.tools.save_image(
             f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1
         )
+
+
+def sample_unet_itw(model, collection, image_results_path, device=DEVICE):
+    for i, data in enumerate(tqdm(collection, 0)):
+        diffused, label = data
+        diffused = diffused.to(device)
+        output = model(diffused)
+
+        image = transform_sample(output)
+
+        odak.learn.tools.save_image(
+            f"{image_results_path}{label}.png", image, cmin=0, cmax=1
+        )

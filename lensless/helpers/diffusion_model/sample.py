@@ -78,3 +78,22 @@ def sample_diffusion_model(
             odak.learn.tools.save_image(
                 f"{image_results_path}{i}groundtruth.png", label, cmin=0, cmax=1
             )
+
+
+def sample_diffusion_model_itw(
+    model, collection, image_results_path, use_x0, device=DEVICE
+):
+    variance = Variance(TIMESTEPS)
+    with torch.inference_mode():
+        for i, data in enumerate(tqdm(collection, 0)):
+            diffused, label = data
+            sample = get_sample(model, diffused.to(device), variance, TIMESTEPS)
+
+            if use_x0:  # using x0 results in image with inverted colours, so reverted
+                sample = invert(sample)
+
+            image = transform_sample(sample)
+
+            odak.learn.tools.save_image(
+                f"{image_results_path}{label}.png", image, cmin=0, cmax=1
+            )
